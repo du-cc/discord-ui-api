@@ -1,3 +1,24 @@
+// turns emoji <img>s into <:name:id> and concat them with textContent
+function emojiString(node) {
+  if (!node) return null;
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent;
+  if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+  if (node.tagName === "IMG" && /emoji/.test(node.className)) {
+    const id = node.getAttribute("data-id");
+    const name = (
+      node.getAttribute("alt") ??
+      node.getAttribute("data-name") ??
+      ""
+    ).replace(/^:|:$/g, "");
+    if (!id) return name ? `:${name}:` : "";
+    const animated = node.src?.includes(".gif") ? "a" : "";
+    return `<${animated}:${name}:${id}>`;
+  }
+
+  return Array.from(node.childNodes).map(emojiString).join("");
+}
+
 function extractMessage(el) {
   if (!el) return null;
   // case for channel head (this is the start of #blabla channel)
@@ -5,11 +26,13 @@ function extractMessage(el) {
 
   const idMatch = el.id?.match(/chat-messages-(\d+)-(\d+)/);
 
-  const content = el.querySelector('[id*="message-content"]').textContent;
+  const content = el.querySelector(
+    '[class*="contents"] [id*="message-content"]',
+  );
 
   const author_username = el.querySelector('[class*="username"]')?.textContent;
   const author_avatar = el.querySelector('img[class*="avatar"]')?.src;
-  const author_id = author_avatar?.match(/\/avatars\/(\d+)\//)[1];
+  const author_id = author_avatar?.match(/(?:users|avatars)\/(\d+)\//)[1];
 
   const timestamp_element = el.querySelector('[id*="message-timestamp"]');
   const edited_element = el.querySelector('time:has([class*="edited"])');
@@ -17,7 +40,7 @@ function extractMessage(el) {
   const data = {
     id: idMatch[2],
     channelId: idMatch[1],
-    content: content,
+    content: emojiString(content),
     author: {
       username: author_username,
       avatar: author_avatar,
@@ -38,26 +61,6 @@ function extractMessage(el) {
 function extractEmbeds(el) {
   const container = el.querySelector('[id*="message-accessories"]');
   if (!container) return [];
-
-  // turns emoji <img>s into <:name:id> and concat them with textContent
-  function emojiString(node) {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent;
-    if (node.nodeType !== Node.ELEMENT_NODE) return "";
-
-    if (node.tagName === "IMG" && /emoji/.test(node.className)) {
-      const id = node.getAttribute("data-id");
-      const name = (
-        node.getAttribute("alt") ??
-        node.getAttribute("data-name") ??
-        ""
-      ).replace(/^:|:$/g, "");
-      if (!id) return name ? `:${name}:` : "";
-      const animated = node.src?.includes(".gif") ? "a" : "";
-      return `<${animated}:${name}:${id}>`;
-    }
-
-    return Array.from(node.childNodes).map(emojiString).join("");
-  }
 
   // for component v2 objects, turn into string / emoji
   function getLabelText(containerEl) {
@@ -173,7 +176,7 @@ function extractReplyReference(el) {
     '[class*="username"]',
   ).textContent;
   const author_avatar = reply.querySelector('img[class*="replyAvatar"]').src;
-  const author_id = author_avatar.match(/\/avatars\/(\d+)\//)[1];
+  const author_id = author_avatar.match(/(?:users|avatars)\/(\d+)\//)[1];
 
   return {
     message_id: message_id,
@@ -182,7 +185,7 @@ function extractReplyReference(el) {
       avatar: author_avatar,
       id: author_id,
     },
-    content: message?.textContent,
+    content: emojiString(message),
   };
 }
 

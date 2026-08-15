@@ -2,7 +2,6 @@ const { extractMessage } = require("./extractor");
 const store = require("./store");
 const Message = require("./structures/Message");
 
-
 /**
  * Extracts and upserts a message into the store.
  */
@@ -20,7 +19,7 @@ function processElement(el, previousAuthor) {
  * @public
  * Fetches every message currently rendered in the DOM and upserts each
  * into the store.
- * 
+ *
  * @returns {Array<Message>} - An array of Message
  */
 function fetchMessages() {
@@ -29,7 +28,7 @@ function fetchMessages() {
 
   for (const el of nodes) {
     // case for continuous message
-    console.log(el)
+    console.log(el);
     const previousAuthor = results.findLast((m) => m.author?.id)?.author;
 
     const message = processElement(el, previousAuthor);
@@ -48,12 +47,12 @@ function fetchMessages() {
  *
  * @returns {Message}
  */
-function fetchMessage(id, { fresh = false } = {}) {
+function fetchMessage(id, fresh = false) {
   if (!fresh) {
     return store.get(id) ?? null;
   }
 
-  id = Number.toString(id);
+  id = String(id);
 
   // <li id="chat-messages-<channelId>-<id>">
   const el = document.querySelector(`[id$="-${id}"][id^="chat-messages-"]`);
@@ -71,7 +70,7 @@ function fetchMessage(id, { fresh = false } = {}) {
 /**
  * @public
  * Returns the most recently created message currently in the store.
- * 
+ *
  * @returns {Message}
  */
 function getLatestMessage() {
