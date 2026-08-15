@@ -1,16 +1,21 @@
-const Client = require('./Client');
+const store = require('./store');
+const { fetchMessages, fetchMessage, getLatestMessage } = require('./messages');
 
-const client = new Client();
-client.init();
+const discordUI = {
+  // fetching
+  fetchMessages,
+  fetchMessage,
+  getLatestMessage,
 
-window.__client = client; 
+  // store access
+  getMessage: store.get,
+  getAllMessages: store.all,
+  clearStore: store.clear,
 
-console.log('Messages found:', client.messages.cache.size);
-console.log('Users found:', client.users.cache.size);
-console.log('Total messages:', client.messages.cache.size);
+};
 
-const all = [...client.messages.cache.values()];
-console.log('Newest (by insertion order):', all[all.length - 1]);
-console.log('Newest (by actual timestamp):', 
-  [...all].sort((a, b) => new Date(a.createdTimestamp) - new Date(b.createdTimestamp)).at(-1)
-);
+if (typeof window !== 'undefined') {
+  window.discordUI = discordUI;
+}
+
+module.exports = discordUI;
