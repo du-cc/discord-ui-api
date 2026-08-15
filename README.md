@@ -1,2 +1,3 @@
 # discord-ui-api
-faster
+
+- [ ] overhaul to use fiber instead of stupid dom which doesnt contain anything...
