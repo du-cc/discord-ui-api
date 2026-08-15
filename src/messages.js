@@ -29,6 +29,7 @@ function fetchMessages() {
 
   for (const el of nodes) {
     // case for continuous message
+    console.log(el)
     const previousAuthor = results.findLast((m) => m.author?.id)?.author;
 
     const message = processElement(el, previousAuthor);
