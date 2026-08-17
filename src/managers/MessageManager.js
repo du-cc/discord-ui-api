@@ -35,7 +35,7 @@ function fetch(id, fresh = false) {
   // all
   if (arguments.length == 0) {
     const nodes = document.querySelectorAll(
-      '[id^="chat-messages-"][class^="messageListItem"',
+      '[id^="chat-messages-"][class^="messageListItem"]',
     );
     const results = [];
 

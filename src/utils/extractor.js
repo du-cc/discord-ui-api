@@ -1,4 +1,3 @@
-// turns emoji <img>s into <:name:id> and concat them with textContent
 function emojiString(node) {
   if (!node) return null;
   if (node.nodeType === Node.TEXT_NODE) return node.textContent;
@@ -21,6 +20,20 @@ function emojiString(node) {
   return Array.from(node.childNodes).map(emojiString).join("");
 }
 
+/**
+ * Extract information and builds a Object
+ * 
+ * @returns {Object}
+ *
+ * Format:
+ * {
+ *   id, channelId, content,
+ *   author: { username, avatar, id, type },
+ *   createdTimestamp, editedTimestamp,
+ *   embeds, element,
+ *   reply: { message_id, author, content, application_command, isUnknown } | null
+ * }
+ */
 function extractMessage(el) {
   if (!el) return null;
 
@@ -82,6 +95,39 @@ function extractEmbeds(el) {
 
   const blocks = [];
 
+  // classic embeds
+  container
+    .querySelectorAll('article[class*="embedFull_"], article[class*="embed_"]')
+    .forEach((embedEl) => {
+      const title_element = embedEl.querySelector('[class*="embedTitle_"]');
+      const description_element = embedEl.querySelector('[class*="embedDescription_"]');
+      const author_element = embedEl.querySelector('[class*="embedAuthorName_"]');
+      const footer_element = embedEl.querySelector('[class*="embedFooterText_"]');
+      const image_element = embedEl.querySelector('img[class*="embedImage_"], img[class*="embedThumbnail_"]');
+
+      const fields = Array.from(embedEl.querySelectorAll('[class*="embedField_"]')).map((fieldEl) => {
+        const name_element = fieldEl.querySelector('[class*="embedFieldName_"]');
+        const value_element = fieldEl.querySelector('[class*="embedFieldValue_"]');
+        return {
+          name: name_element ? emojiString(name_element) : null,
+          value: value_element ? emojiString(value_element) : null,
+          element: fieldEl,
+        };
+      });
+
+      blocks.push({
+        type: "embed",
+        title: title_element ? emojiString(title_element) : null,
+        description: description_element ? emojiString(description_element) : null,
+        author: author_element ? emojiString(author_element) : null,
+        footer: footer_element ? emojiString(footer_element) : null,
+        imageUrl: image_element?.src ?? null,
+        fields,
+        element: embedEl,
+      });
+    });
+
+  // Components V2 sections
   container.querySelectorAll('[class*="section_"]').forEach((sectionEl) => {
     const title = sectionEl.querySelector("h3");
     const subtitle = sectionEl.querySelector("small");
