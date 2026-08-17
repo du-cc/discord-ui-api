@@ -34,9 +34,9 @@ function extractMessage(el) {
     '[id*="message-username"] [class*="username"]',
   )?.textContent;
   const author_avatar = el.querySelector('img[class*="avatar"]')?.src;
-  const author_id = author_avatar.includes("assets")
+  const author_id = author_avatar?.includes("assets")
     ? null
-    : author_avatar.match(/(?:users|avatars)\/(\d+)\//)[1];
+    : author_avatar?.match(/(?:users|avatars)\/(\d+)\//)[1];
   const author_type = el.querySelector('[aria-label$="App"]') ? "app" : "user";
 
   const timestamp_element = el.querySelector('[id*="message-timestamp"]');
