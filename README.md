@@ -1,8 +1,8 @@
 <div align="center">
 	<br />
-	<p style="font-size: 2em; font-weight: bold">
+	<h1>
 		discord-ui-api
-	</p>
+	</h1>
 	<br />
 </div>
 
