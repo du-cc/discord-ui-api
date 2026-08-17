@@ -4,6 +4,11 @@ function emojiString(node) {
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
 
   if (node.tagName === "SVG") return "";
+  if (
+    node.tagName === "SPAN" &&
+    (/hiddenVisually/.test(node.className) || /timestamp/.test(node.className))
+  )
+    return "";
 
   if (node.tagName === "IMG" && /emoji/.test(node.className)) {
     const id = node.getAttribute("data-id");
@@ -22,7 +27,7 @@ function emojiString(node) {
 
 /**
  * Extract information and builds a Object
- * 
+ *
  * @returns {Object}
  *
  * Format:
@@ -100,14 +105,28 @@ function extractEmbeds(el) {
     .querySelectorAll('article[class*="embedFull_"], article[class*="embed_"]')
     .forEach((embedEl) => {
       const title_element = embedEl.querySelector('[class*="embedTitle_"]');
-      const description_element = embedEl.querySelector('[class*="embedDescription_"]');
-      const author_element = embedEl.querySelector('[class*="embedAuthorName_"]');
-      const footer_element = embedEl.querySelector('[class*="embedFooterText_"]');
-      const image_element = embedEl.querySelector('img[class*="embedImage_"], img[class*="embedThumbnail_"]');
+      const description_element = embedEl.querySelector(
+        '[class*="embedDescription_"]',
+      );
+      const author_element = embedEl.querySelector(
+        '[class*="embedAuthorName_"]',
+      );
+      const footer_element = embedEl.querySelector(
+        '[class*="embedFooterText_"]',
+      );
+      const image_element = embedEl.querySelector(
+        'img[class*="embedImage_"], img[class*="embedThumbnail_"]',
+      );
 
-      const fields = Array.from(embedEl.querySelectorAll('[class*="embedField_"]')).map((fieldEl) => {
-        const name_element = fieldEl.querySelector('[class*="embedFieldName_"]');
-        const value_element = fieldEl.querySelector('[class*="embedFieldValue_"]');
+      const fields = Array.from(
+        embedEl.querySelectorAll('[class*="embedField_"]'),
+      ).map((fieldEl) => {
+        const name_element = fieldEl.querySelector(
+          '[class*="embedFieldName_"]',
+        );
+        const value_element = fieldEl.querySelector(
+          '[class*="embedFieldValue_"]',
+        );
         return {
           name: name_element ? emojiString(name_element) : null,
           value: value_element ? emojiString(value_element) : null,
@@ -118,7 +137,9 @@ function extractEmbeds(el) {
       blocks.push({
         type: "embed",
         title: title_element ? emojiString(title_element) : null,
-        description: description_element ? emojiString(description_element) : null,
+        description: description_element
+          ? emojiString(description_element)
+          : null,
         author: author_element ? emojiString(author_element) : null,
         footer: footer_element ? emojiString(footer_element) : null,
         imageUrl: image_element?.src ?? null,
@@ -210,7 +231,9 @@ function extractReplyReference(el) {
   var author_id = author_avatar.includes("assets")
     ? null
     : author_avatar.match(/(?:users|avatars)\/(\d+)\//)[1];
-  const author_type = reply.querySelector('[aria-label$="App"]') ? "app" : "user";
+  const author_type = reply.querySelector('[aria-label$="App"]')
+    ? "app"
+    : "user";
 
   return {
     message_id: message_id,

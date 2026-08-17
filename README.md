@@ -35,6 +35,12 @@ This project interacts with Discord using pure DOM instead of API calls.
   discordUI.Messages.onMessage((message) => {
     console.log("You got mail!", message);
   });
+
+  // Listening to message edits (cached messages only)
+  // You can fetch() or listen to messages to store in cache
+  discordUI.Messages.onMessageEdit((message) => {
+    console.log("Update!", message);
+  });
 })();
 ```
 
@@ -57,3 +63,5 @@ This project interacts with Discord using pure DOM instead of API calls.
         }, 1000);
      });</pre>
   </details>
+
+- Double firing (onMessage) when author sends **WILL FIX**

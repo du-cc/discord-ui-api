@@ -8,9 +8,9 @@
     }
   };
 
-  // src/structures/Message.js
+  // structures/Message.js
   var require_Message = __commonJS({
-    "src/structures/Message.js"(exports, module) {
+    "structures/Message.js"(exports, module) {
       var Message = class {
         constructor(data) {
           this.id = data.id;
@@ -41,9 +41,9 @@
     }
   });
 
-  // src/utils/store.js
+  // utils/store.js
   var require_store = __commonJS({
-    "src/utils/store.js"(exports, module) {
+    "utils/store.js"(exports, module) {
       var Message = require_Message();
       var cache = /* @__PURE__ */ new Map();
       function upsert(data) {
@@ -73,14 +73,16 @@
     }
   });
 
-  // src/utils/extractor.js
+  // utils/extractor.js
   var require_extractor = __commonJS({
-    "src/utils/extractor.js"(exports, module) {
+    "utils/extractor.js"(exports, module) {
       function emojiString(node) {
         if (!node) return null;
         if (node.nodeType === Node.TEXT_NODE) return node.textContent;
         if (node.nodeType !== Node.ELEMENT_NODE) return "";
         if (node.tagName === "SVG") return "";
+        if (node.tagName === "SPAN" && /hiddenVisually/.test(node.className))
+          return "";
         if (node.tagName === "IMG" && /emoji/.test(node.className)) {
           const id = node.getAttribute("data-id");
           const name = (node.getAttribute("alt") ?? node.getAttribute("data-name") ?? "").replace(/^:|:$/g, "");
@@ -138,13 +140,27 @@
         const blocks = [];
         container.querySelectorAll('article[class*="embedFull_"], article[class*="embed_"]').forEach((embedEl) => {
           const title_element = embedEl.querySelector('[class*="embedTitle_"]');
-          const description_element = embedEl.querySelector('[class*="embedDescription_"]');
-          const author_element = embedEl.querySelector('[class*="embedAuthorName_"]');
-          const footer_element = embedEl.querySelector('[class*="embedFooterText_"]');
-          const image_element = embedEl.querySelector('img[class*="embedImage_"], img[class*="embedThumbnail_"]');
-          const fields = Array.from(embedEl.querySelectorAll('[class*="embedField_"]')).map((fieldEl) => {
-            const name_element = fieldEl.querySelector('[class*="embedFieldName_"]');
-            const value_element = fieldEl.querySelector('[class*="embedFieldValue_"]');
+          const description_element = embedEl.querySelector(
+            '[class*="embedDescription_"]'
+          );
+          const author_element = embedEl.querySelector(
+            '[class*="embedAuthorName_"]'
+          );
+          const footer_element = embedEl.querySelector(
+            '[class*="embedFooterText_"]'
+          );
+          const image_element = embedEl.querySelector(
+            'img[class*="embedImage_"], img[class*="embedThumbnail_"]'
+          );
+          const fields = Array.from(
+            embedEl.querySelectorAll('[class*="embedField_"]')
+          ).map((fieldEl) => {
+            const name_element = fieldEl.querySelector(
+              '[class*="embedFieldName_"]'
+            );
+            const value_element = fieldEl.querySelector(
+              '[class*="embedFieldValue_"]'
+            );
             return {
               name: name_element ? emojiString(name_element) : null,
               value: value_element ? emojiString(value_element) : null,
@@ -240,9 +256,9 @@
     }
   });
 
-  // src/utils/util.js
+  // utils/util.js
   var require_util = __commonJS({
-    "src/utils/util.js"(exports, module) {
+    "utils/util.js"(exports, module) {
       async function sleep(ms) {
         return new Promise((resolve) => setTimeout(resolve, ms));
       }
@@ -250,9 +266,9 @@
     }
   });
 
-  // src/managers/MessageManager.js
+  // managers/MessageManager.js
   var require_MessageManager = __commonJS({
-    "src/managers/MessageManager.js"(exports, module) {
+    "managers/MessageManager.js"(exports, module) {
       var { extractMessage } = require_extractor();
       var store = require_store();
       var util = require_util();
@@ -333,10 +349,17 @@
           e.dispatchEvent(sendEvent);
         }
       }
-      var listeners = /* @__PURE__ */ new Set();
+      var messageListeners = /* @__PURE__ */ new Set();
+      var editListeners = /* @__PURE__ */ new Set();
       var containerObserver = null;
-      function onMessage(callback) {
-        listeners.add(callback);
+      function getMessageEl(node) {
+        if (node.nodeType !== 1) return null;
+        if (node.matches?.('[id^="chat-messages-"][class^="messageListItem"]')) {
+          return node;
+        }
+        return node.closest?.('[id^="chat-messages-"][class^="messageListItem"]') ?? null;
+      }
+      function startObserving() {
         if (containerObserver) return;
         const container = document.querySelector('ol[data-list-id="chat-messages"]');
         containerObserver = new MutationObserver((mutations) => {
@@ -345,43 +368,90 @@
               if (node.nodeType !== 1) continue;
               if (!node.matches?.('[id^="chat-messages-"][class^="messageListItem"]'))
                 continue;
+              const idMatch = node.id?.match(/chat-messages-.*-(\d+)$/);
+              const nodeId = idMatch?.[1];
+              if (nodeId && store.get(nodeId)) continue;
               const message = processElement(node);
               if (!message) continue;
               if (message.reply?.application_command === true && message.content === "Sending command...") {
                 continue;
               }
-              listeners.forEach((fn) => fn(message));
+              messageListeners.forEach((fn) => fn(message));
+            }
+            let editMarkerEl = null;
+            if (mutation.type === "childList" && mutation.addedNodes.length) {
+              for (const node of mutation.addedNodes) {
+                if (node.nodeType !== 1) continue;
+                if (node.matches?.('[class*="edited"]') || node.querySelector?.('[class*="edited"]')) {
+                  editMarkerEl = node.matches?.('[class*="edited"]') ? node.closest("time") : node.querySelector('[class*="edited"]')?.closest("time");
+                  if (editMarkerEl) break;
+                }
+              }
+            } else if (mutation.type === "attributes" && mutation.attributeName === "datetime" && mutation.target.nodeType === 1 && mutation.target.tagName === "TIME" && mutation.target.querySelector('[class*="edited"]')) {
+              editMarkerEl = mutation.target;
+            }
+            if (editMarkerEl) {
+              const messageEl = getMessageEl(editMarkerEl);
+              if (!messageEl) continue;
+              const existingId = messageEl.id.replace(/^chat-messages-.*-/, "");
+              const existing = store.get(existingId);
+              if (!existing) continue;
+              const previousEditedTimestamp = existing.editedTimestamp;
+              const previousAuthor = existing.author;
+              const message = processElement(messageEl, previousAuthor);
+              if (!message) continue;
+              if (message.editedTimestamp === previousEditedTimestamp) continue;
+              editListeners.forEach((fn) => fn(message));
             }
           }
         });
-        containerObserver.observe(container, { childList: true, subtree: true });
-        return () => listeners.delete(callback);
+        containerObserver.observe(container, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["datetime"]
+        });
+      }
+      function onMessage(callback) {
+        messageListeners.add(callback);
+        startObserving();
+        return () => messageListeners.delete(callback);
+      }
+      function onMessageEdit(callback) {
+        editListeners.add(callback);
+        startObserving();
+        return () => editListeners.delete(callback);
       }
       function stopListening() {
         containerObserver?.disconnect();
         containerObserver = null;
-        listeners.clear();
+        messageListeners.clear();
+        editListeners.clear();
       }
-      module.exports = { fetch, latest, send, onMessage, stopListening };
+      module.exports = {
+        fetch,
+        latest,
+        send,
+        onMessage,
+        onMessageEdit,
+        stopListening
+      };
     }
   });
 
-  // src/index.js
-  var require_src = __commonJS({
-    "src/index.js"(exports, module) {
+  // index.js
+  var require_index = __commonJS({
+    "index.js"(exports, module) {
       var store = require_store();
-      var discordUI2 = {
-        // fetching
+      var discordUI = {
         Messages: require_MessageManager(),
-        // store access
-        getMessage: store.get,
-        getAllMessages: store.all,
-        clearStore: store.clear
+        Store: require_store()
       };
       if (typeof window !== "undefined") {
-        window.discordUI = discordUI2;
+        window.discordUI = discordUI;
       }
-      module.exports = discordUI2;
+      module.exports = discordUI;
     }
   });
+  require_index();
 })();

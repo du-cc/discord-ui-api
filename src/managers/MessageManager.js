@@ -136,30 +136,37 @@ async function send(msg, args) {
   }
 }
 
-// Listener
-
-const listeners = new Set();
+// Listeners
+const messageListeners = new Set();
+const editListeners = new Set();
 let containerObserver = null;
 
-/**
- * @public
- * Callback when new message appears
- *
- * @param {(message: Message) => void} callback
- * @returns {() => void} unsubscribe function
- */
-function onMessage(callback) {
-  listeners.add(callback);
+function getMessageEl(node) {
+  if (node.nodeType !== 1) return null;
+  if (node.matches?.('[id^="chat-messages-"][class^="messageListItem"]')) {
+    return node;
+  }
+  return (
+    node.closest?.('[id^="chat-messages-"][class^="messageListItem"]') ?? null
+  );
+}
+
+function startObserving() {
   if (containerObserver) return; // already watching
 
   const container = document.querySelector('ol[data-list-id="chat-messages"]');
 
   containerObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
+      // New messages
       for (const node of mutation.addedNodes) {
         if (node.nodeType !== 1) continue;
         if (!node.matches?.('[id^="chat-messages-"][class^="messageListItem"]'))
           continue;
+
+        const idMatch = node.id?.match(/chat-messages-.*-(\d+)$/);
+        const nodeId = idMatch?.[1];
+        if (nodeId && store.get(nodeId)) continue;
 
         const message = processElement(node);
         if (!message) continue;
@@ -171,13 +178,88 @@ function onMessage(callback) {
           continue;
         }
 
-        listeners.forEach((fn) => fn(message));
+        messageListeners.forEach((fn) => fn(message));
+      }
+
+      // Edit message
+      let editMarkerEl = null;
+      if (mutation.type === "childList" && mutation.addedNodes.length) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (
+            node.matches?.('[class*="edited"]') ||
+            node.querySelector?.('[class*="edited"]')
+          ) {
+            editMarkerEl = node.matches?.('[class*="edited"]')
+              ? node.closest("time")
+              : node.querySelector('[class*="edited"]')?.closest("time");
+            if (editMarkerEl) break;
+          }
+        }
+      } else if (
+        mutation.type === "attributes" &&
+        mutation.attributeName === "datetime" &&
+        mutation.target.nodeType === 1 &&
+        mutation.target.tagName === "TIME" &&
+        mutation.target.querySelector('[class*="edited"]')
+      ) {
+        editMarkerEl = mutation.target;
+      }
+
+      if (editMarkerEl) {
+        const messageEl = getMessageEl(editMarkerEl);
+        if (!messageEl) continue;
+
+        const existingId = messageEl.id.replace(/^chat-messages-.*-/, "");
+        const existing = store.get(existingId);
+
+        if (!existing) continue;
+
+        const previousEditedTimestamp = existing.editedTimestamp;
+        const previousAuthor = existing.author;
+
+        const message = processElement(messageEl, previousAuthor);
+        if (!message) continue;
+
+        if (message.editedTimestamp === previousEditedTimestamp) continue;
+
+        editListeners.forEach((fn) => fn(message));
       }
     }
   });
 
-  containerObserver.observe(container, { childList: true, subtree: true });
-  return () => listeners.delete(callback);
+  containerObserver.observe(container, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["datetime"],
+  });
+}
+
+/**
+ * @public
+ * Callback when new message appears
+ *
+ * @param {(message: Message) => void} callback
+ * @returns {() => void} unsubscribe function
+ */
+function onMessage(callback) {
+  messageListeners.add(callback);
+  startObserving();
+  return () => messageListeners.delete(callback);
+}
+
+/**
+ * @public
+ * Callback when a message is edited (fetched messages only)
+ *
+ * @param {(message: Message) => void} callback
+ * @returns {() => void} unsubscribe function
+ */
+function onMessageEdit(callback) {
+  editListeners.add(callback);
+  startObserving();
+  return () => editListeners.delete(callback);
 }
 
 /**
@@ -187,7 +269,15 @@ function onMessage(callback) {
 function stopListening() {
   containerObserver?.disconnect();
   containerObserver = null;
-  listeners.clear();
+  messageListeners.clear();
+  editListeners.clear();
 }
 
-module.exports = { fetch, latest, send, onMessage, stopListening };
+module.exports = {
+  fetch,
+  latest,
+  send,
+  onMessage,
+  onMessageEdit,
+  stopListening,
+};
