@@ -4,6 +4,8 @@ function emojiString(node) {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent;
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
 
+  if (node.tagName === "SVG") return "";
+
   if (node.tagName === "IMG" && /emoji/.test(node.className)) {
     const id = node.getAttribute("data-id");
     const name = (
@@ -21,8 +23,6 @@ function emojiString(node) {
 
 function extractMessage(el) {
   if (!el) return null;
-  // case for channel head (this is the start of #blabla channel)
-  if (el.tagName !== "LI") return null;
 
   const idMatch = el.id?.match(/chat-messages-(\d+)-(\d+)/);
 
@@ -30,9 +30,14 @@ function extractMessage(el) {
     '[class*="contents"] [id*="message-content"]',
   );
 
-  const author_username = el.querySelector('[class*="username"]')?.textContent;
+  const author_username = el.querySelector(
+    '[id*="message-username"] [class*="username"]',
+  )?.textContent;
   const author_avatar = el.querySelector('img[class*="avatar"]')?.src;
-  const author_id = author_avatar?.match(/(?:users|avatars)\/(\d+)\//)[1];
+  const author_id = author_avatar.includes("assets")
+    ? null
+    : author_avatar.match(/(?:users|avatars)\/(\d+)\//)[1];
+  const author_type = el.querySelector('[aria-label$="App"]') ? "app" : "user";
 
   const timestamp_element = el.querySelector('[id*="message-timestamp"]');
   const edited_element = el.querySelector('time:has([class*="edited"])');
@@ -45,6 +50,7 @@ function extractMessage(el) {
       username: author_username,
       avatar: author_avatar,
       id: author_id,
+      type: author_type,
     },
     createdTimestamp: timestamp_element?.dateTime ?? null,
     editedTimestamp: edited_element?.dateTime ?? null,
@@ -135,18 +141,30 @@ function extractReplyReference(el) {
   );
 
   if (!reply) return null;
-  // case for application commands
-  if (reply.querySelector('[class*="appLauncherOnboardingCommandName"]'))
-    return null;
 
-  const message = reply.querySelector('[id*="message-content"]');
-  const message_id = message?.id.match(/message-content-(\d.*)/)[1];
+  // case for application commands
+  const application_command = reply.querySelector(
+    '[class*="appLauncherOnboardingCommandName"]',
+  );
+
+  const message = application_command
+    ? application_command
+    : reply.querySelector('[id*="message-content"]');
+
+  const message_id = application_command
+    ? null
+    : message?.id.match(/message-content-(\d.*)/)?.[1];
 
   const author_username = reply.querySelector(
     '[class*="username"]',
   ).textContent;
-  const author_avatar = reply.querySelector('img[class*="replyAvatar"]').src;
-  const author_id = author_avatar.match(/(?:users|avatars)\/(\d+)\//)[1];
+  const author_avatar = reply.querySelector(
+    'img[class*="replyAvatar"], img[class*="executedCommandAvatar"]',
+  ).src;
+  var author_id = author_avatar.includes("assets")
+    ? null
+    : author_avatar.match(/(?:users|avatars)\/(\d+)\//)[1];
+  const author_type = reply.querySelector('[aria-label$="App"]') ? "app" : "user";
 
   return {
     message_id: message_id,
@@ -154,8 +172,11 @@ function extractReplyReference(el) {
       username: author_username,
       avatar: author_avatar,
       id: author_id,
+      type: author_type,
     },
     content: emojiString(message),
+    application_command: !!application_command,
+    isUnknown: !!reply.querySelector('[class*="repliedTextPlaceholder"]'),
   };
 }
 

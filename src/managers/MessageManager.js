@@ -23,7 +23,7 @@ function processElement(el, previousAuthor) {
  * @returns {Array<Message>} - An array of Message
  */
 function fetchMessages() {
-  const nodes = document.querySelectorAll('[id^="chat-messages-"]');
+  const nodes = document.querySelectorAll('[id^="chat-messages-"][class^="messageListItem"');
   const results = [];
 
   for (const el of nodes) {
