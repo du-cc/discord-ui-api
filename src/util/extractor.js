@@ -130,35 +130,6 @@ function extractEmbeds(el) {
 }
 
 function extractReplyReference(el) {
-  // experiment: blame discord (some reply do not have any source id eg:"click to view message/command")
-  function getReactProps(el) {
-    const key = Object.keys(el).find(
-      (k) => k.startsWith("__reactProps$") || k.startsWith("__reactFiber$"),
-    );
-    return key ? el[key] : null;
-  }
-
-  function getReplyTargetId(messageEl) {
-    const replyContext = messageEl.querySelector(
-      '[id^="message-reply-context-"]',
-    );
-    if (!replyContext) return null;
-
-    let fiberKey = Object.keys(replyContext).find((k) =>
-      k.startsWith("__reactFiber$"),
-    );
-    let fiber = fiberKey ? replyContext[fiberKey] : null;
-
-    // walk up the fiber tree looking for message/messageReference data
-    let node = fiber;
-    for (let i = 0; i < 15 && node; i++) {
-      const props = node.memoizedProps;
-      const ref = props?.message?.messageReference ?? props?.messageReference;
-      if (ref?.message_id) return ref.message_id;
-      node = node.return;
-    }
-    return null;
-  }
   const reply = el.querySelector(
     '[id*="message-reply-context"], [class*="repliedMessage_"]',
   );
@@ -169,8 +140,7 @@ function extractReplyReference(el) {
     return null;
 
   const message = reply.querySelector('[id*="message-content"]');
-  // const message_id = message.id.match(/message-content-(\d.*)/)[1];
-  const message_id = getReplyTargetId(el);
+  const message_id = message?.id.match(/message-content-(\d.*)/)[1];
 
   const author_username = reply.querySelector(
     '[class*="username"]',

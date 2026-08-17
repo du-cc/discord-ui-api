@@ -1,4 +1,4 @@
-const Message = require('./structures/Message');
+const Message = require('../structures/Message');
 
 const cache = new Map(); // id
 

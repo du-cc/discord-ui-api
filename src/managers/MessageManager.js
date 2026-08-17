@@ -1,6 +1,6 @@
-const { extractMessage } = require("./extractor");
-const store = require("./store");
-const Message = require("./structures/Message");
+const { extractMessage } = require("../util/extractor");
+const store = require("../util/store");
+const Message = require("../structures/Message");
 
 /**
  * Extracts and upserts a message into the store.
