@@ -1,5 +1,5 @@
-const store = require('./store');
-const { fetchMessages, fetchMessage, getLatestMessage } = require('./messages');
+const store = require('./util/store');
+const { fetchMessages, fetchMessage, getLatestMessage } = require('./managers/MessageManager');
 
 const discordUI = {
   // fetching
