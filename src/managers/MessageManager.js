@@ -1,6 +1,5 @@
 const { extractMessage } = require("../utils/extractor");
 const store = require("../utils/store");
-const Message = require("../structures/Message");
 const util = require("../utils/util");
 
 /**
